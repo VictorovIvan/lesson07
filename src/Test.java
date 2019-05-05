@@ -16,13 +16,13 @@ import java.util.concurrent.*;
  */
 public class Test {
     public static void main(String[] args) throws Exception {
-        Integer[] someNumbers = {3, 5, 7, 9};
+        Integer[] someNumbers = {9, 7, 5, 3, 10, 11, 4, 0, 1, 2};
         Future<BigInteger>[] resultCalculation;
         FactorialCalc factorialCalc = new FactorialCalc();
 
-        resultCalculation = factorialCalc.calcArraysFactorials(someNumbers);
+        resultCalculation = factorialCalc. calcArraysFactorials(someNumbers);
         for (int indx = 0; indx < someNumbers.length; indx++) {
-            System.out.println(resultCalculation[indx].get());
+            resultCalculation[indx].get();
         }
     }
 }

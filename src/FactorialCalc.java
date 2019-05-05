@@ -1,8 +1,8 @@
 import java.math.BigInteger;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.Arrays;
+import java.util.concurrent.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * <p>Дан массив случайных чисел. Написать программу для вычисления факториалов всех элементов массива.
@@ -22,16 +22,22 @@ import java.util.concurrent.Future;
  * Class FactorialCalc
  */
 public class FactorialCalc {
+    private static ConcurrentMap<Integer, BigInteger> mapFactorials = new ConcurrentHashMap<>();
+    private static Integer lastKey;
+
 
     /**
-     *  Class FactorialCalcCallable
+     * Class FactorialCalcCallable
      */
     static class FactorialCalcCallable implements Callable<BigInteger> {
-        int numberOfFactorial;
+        final int numberOfFactorial;
+        final private Lock lock = new ReentrantLock();
+
 
         /**
          * Constructor FactorialCalcCallable
-         * @param numberOfFactorial  Input number for calculation of the factorial
+         *
+         * @param numberOfFactorial Input number for calculation of the factorial
          */
         public FactorialCalcCallable(int numberOfFactorial) {
             this.numberOfFactorial = numberOfFactorial;
@@ -39,13 +45,30 @@ public class FactorialCalc {
 
         /**
          * Calculation factorial
+         *
          * @return result Result calculation of the factorial
          */
         @Override
         public BigInteger call() {
             BigInteger result = BigInteger.ONE;
-            for (int indx = 2; indx <= numberOfFactorial; indx++) {
-                result = result.multiply(BigInteger.valueOf(indx));
+            lock.lock();
+            try {
+                if (numberOfFactorial >= 2) {
+                    if (mapFactorials.isEmpty() & lastKey < 2) {
+                        for (int index = 2; index <= numberOfFactorial; index++) {
+                            result = result.multiply(BigInteger.valueOf(index));
+                        }
+                    } else {
+                        result = mapFactorials.get(lastKey);
+                        for (int index = lastKey + 1; index <= numberOfFactorial; index++) {
+                            result = result.multiply(BigInteger.valueOf(index));
+                        }
+                    }
+                }
+                lastKey = numberOfFactorial;
+                mapFactorials.putIfAbsent(numberOfFactorial, result);
+            } finally {
+                lock.unlock();
             }
             return result;
         }
@@ -53,14 +76,27 @@ public class FactorialCalc {
 
     /**
      * Calculation array of the number. And return array of the factorials
+     *
      * @param inputArray Input array of the number
      * @return resultCalculation Result calculates the array of factorials
      */
     public Future<BigInteger>[] calcArraysFactorials(Integer[] inputArray) {
+        Integer[] sortInputArray = Arrays.copyOf(inputArray,inputArray.length);
+        Arrays.sort(sortInputArray);
+        lastKey = sortInputArray[0];
         Future<BigInteger>[] resultCalculation = new Future[inputArray.length];
         ExecutorService exsService = Executors.newFixedThreadPool(inputArray.length);
         for (int index = 0; index < inputArray.length; index++) {
-            resultCalculation[index] = exsService.submit(new FactorialCalc.FactorialCalcCallable(inputArray[index]));
+            resultCalculation[index] = exsService.submit(new FactorialCalc.FactorialCalcCallable(sortInputArray[index]));
+            try {
+                resultCalculation[index].get();
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+        for (int index = 0; index < inputArray.length; index++) {
+            System.out.println("Число: " + (inputArray[index]));
+            System.out.println("Факториал: " + mapFactorials.get(sortInputArray[index]) + "\n");
         }
         exsService.shutdown();
         return resultCalculation;
