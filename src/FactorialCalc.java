@@ -96,7 +96,7 @@ public class FactorialCalc {
         }
         for (int index = 0; index < inputArray.length; index++) {
             System.out.println("Число: " + (inputArray[index]));
-            System.out.println("Факториал: " + mapFactorials.get(sortInputArray[index]) + "\n");
+            System.out.println("Факториал: " + mapFactorials.get(inputArray[index]) + "\n");
         }
         exsService.shutdown();
         return resultCalculation;
