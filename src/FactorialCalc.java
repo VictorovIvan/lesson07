@@ -3,25 +3,12 @@ import java.util.Arrays;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-
-/**
- * <p>Дан массив случайных чисел. Написать программу для вычисления факториалов всех элементов массива.
- * Использовать пул потоков для решения задачи.</p>
- * <p>Особенности выполнения:</p>
- * <p>Для данного примера использовать рекурсию - не очень хороший вариант, т.к. происходит большое выделение памяти,
- * очень вероятен StackOverFlow. Лучше перемножать числа в простом цикле при этом создавать объект типа BigInteger
- * По сути, есть несколько способа решения задания:</p>
- * <p>1) распараллеливать вычисление факториала для одного числа
- * 2) распараллеливать вычисления для разных чисел
- * 3) комбинированный</p>
- * <p>При чем вычислив факториал для одного числа, можно запомнить эти данные и использовать их для вычисления другого,
- * что будет гораздо быстрее</p>
- */
+import java.util.stream.IntStream;
 
 /**
  * Class FactorialCalc
  */
-public class FactorialCalc {
+class FactorialCalc {
     private static ConcurrentMap<Integer, BigInteger> mapFactorials = new ConcurrentHashMap<>();
     private static Integer lastKey;
 
@@ -39,7 +26,7 @@ public class FactorialCalc {
          *
          * @param numberOfFactorial Input number for calculation of the factorial
          */
-        public FactorialCalcCallable(int numberOfFactorial) {
+        FactorialCalcCallable(int numberOfFactorial) {
             this.numberOfFactorial = numberOfFactorial;
         }
 
@@ -80,24 +67,24 @@ public class FactorialCalc {
      * @param inputArray Input array of the number
      * @return resultCalculation Result calculates the array of factorials
      */
-    public Future<BigInteger>[] calcArraysFactorials(Integer[] inputArray) {
+    Future[] calcArraysFactorials(Integer[] inputArray) {
         Integer[] sortInputArray = Arrays.copyOf(inputArray,inputArray.length);
         Arrays.sort(sortInputArray);
         lastKey = sortInputArray[0];
-        Future<BigInteger>[] resultCalculation = new Future[inputArray.length];
+        Future[] resultCalculation = new Future[inputArray.length];
         ExecutorService exsService = Executors.newFixedThreadPool(inputArray.length);
-        for (int index = 0; index < inputArray.length; index++) {
-            resultCalculation[index] = exsService.submit(new FactorialCalc.FactorialCalcCallable(sortInputArray[index]));
+        IntStream.range(0, inputArray.length).forEach(index -> {
+            resultCalculation[index] = exsService.submit(new FactorialCalcCallable(sortInputArray[index]));
             try {
                 resultCalculation[index].get();
             } catch (InterruptedException | ExecutionException e) {
                 e.printStackTrace();
             }
-        }
-        for (int index = 0; index < inputArray.length; index++) {
+        });
+        IntStream.range(0, inputArray.length).forEach(index -> {
             System.out.println("Число: " + (inputArray[index]));
             System.out.println("Факториал: " + mapFactorials.get(inputArray[index]) + "\n");
-        }
+        });
         exsService.shutdown();
         return resultCalculation;
     }

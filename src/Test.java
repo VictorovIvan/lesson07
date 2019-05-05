@@ -1,5 +1,4 @@
-import java.math.BigInteger;
-import java.util.concurrent.*;
+import java.util.concurrent.Future;
 
 /**
  * <p>Дан массив случайных чисел. Написать программу для вычисления факториалов всех элементов массива.
@@ -17,7 +16,7 @@ import java.util.concurrent.*;
 public class Test {
     public static void main(String[] args) throws Exception {
         Integer[] someNumbers = {9, 7, 5, 3, 10, 11, 4, 0, 1, 2};
-        Future<BigInteger>[] resultCalculation;
+        Future[] resultCalculation;
         FactorialCalc factorialCalc = new FactorialCalc();
 
         resultCalculation = factorialCalc. calcArraysFactorials(someNumbers);
