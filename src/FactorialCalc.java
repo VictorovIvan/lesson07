@@ -24,7 +24,7 @@ class FactorialCalc {
          * @param inputNumber    Input number
          * @param inputFactorial Input factorial
          */
-        public putValueMapRunnable(Integer inputNumber, BigInteger inputFactorial) {
+        putValueMapRunnable(Integer inputNumber, BigInteger inputFactorial) {
             this.number = inputNumber;
             this.factorial = inputFactorial;
         }
@@ -49,7 +49,7 @@ class FactorialCalc {
          *
          * @param number Input number
          */
-        public getValueMapCallable(Integer number) {
+        getValueMapCallable(Integer number) {
             this.number = number;
         }
 
@@ -83,9 +83,7 @@ class FactorialCalc {
                 } else {
                     try {
                         resultCalculation[indexValue - 1].get();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
+                    } catch (InterruptedException | ExecutionException e) {
                         e.printStackTrace();
                     }
                     result = mapFactorials.get(lastKey);
