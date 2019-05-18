@@ -15,13 +15,14 @@ import java.util.concurrent.Future;
  */
 public class Test {
     public static void main(String[] args) throws Exception {
-        Integer[] someNumbers = {9, 7, 5, 3, 10, 11, 4, 0, 1, 2};
+        Integer[] someNumbers = {9, 7, 5, 3, 10, 15, 4, 0, 1, 11, 12, 13};
         Future[] resultCalculation;
         FactorialCalc factorialCalc = new FactorialCalc();
 
-        resultCalculation = factorialCalc. calcArraysFactorials(someNumbers);
+        resultCalculation = factorialCalc.calcArraysFactorials(someNumbers);
         for (int indx = 0; indx < someNumbers.length; indx++) {
             resultCalculation[indx].get();
+            System.out.println("Факториал " + someNumbers[indx].toString()+ " равен " + resultCalculation[indx].get());
         }
     }
 }

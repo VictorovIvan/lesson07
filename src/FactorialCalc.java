@@ -1,9 +1,6 @@
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.IntStream;
 
 /**
  * Class FactorialCalc
@@ -11,53 +8,114 @@ import java.util.stream.IntStream;
 class FactorialCalc {
     private static ConcurrentMap<Integer, BigInteger> mapFactorials = new ConcurrentHashMap<>();
     private static Integer lastKey;
-
+    private static final int MAX_NUMBER_IN_ARRAY = 500;
+    private static final int MAX_SIZE_OF_ARRAY = 10;
 
     /**
-     * Class FactorialCalcCallable
+     * Class putValueMapRunnable (Runnable)
      */
-    static class FactorialCalcCallable implements Callable<BigInteger> {
-        final int numberOfFactorial;
-        final private Lock lock = new ReentrantLock();
-
+    static class putValueMapRunnable implements Runnable {
+        Integer number;
+        BigInteger factorial;
 
         /**
-         * Constructor FactorialCalcCallable
+         * Constructor of the putValueMapRunnable
          *
-         * @param numberOfFactorial Input number for calculation of the factorial
+         * @param inputNumber    Input number
+         * @param inputFactorial Input factorial
          */
-        FactorialCalcCallable(int numberOfFactorial) {
-            this.numberOfFactorial = numberOfFactorial;
+        public putValueMapRunnable(Integer inputNumber, BigInteger inputFactorial) {
+            this.number = inputNumber;
+            this.factorial = inputFactorial;
         }
 
         /**
-         * Calculation factorial
+         * Run Thread for put factorial in map
+         */
+        @Override
+        public void run() {
+            mapFactorials.putIfAbsent(number, factorial);
+        }
+    }
+
+    /**
+     * Class getValueMapCallable (Callable)
+     */
+    static class getValueMapCallable implements Callable {
+        Integer number;
+
+        /**
+         * Constructor of the getValueMapCallable
          *
-         * @return result Result calculation of the factorial
+         * @param number Input number
+         */
+        public getValueMapCallable(Integer number) {
+            this.number = number;
+        }
+
+        /**
+         * Call of the get factorial
+         *
+         * @return BigInteger Factorial of the number
          */
         @Override
         public BigInteger call() {
-            BigInteger result = BigInteger.ONE;
-            lock.lock();
-            try {
-                if (numberOfFactorial >= 2) {
-                    if (mapFactorials.isEmpty() & lastKey < 2) {
-                        for (int index = 2; index <= numberOfFactorial; index++) {
-                            result = result.multiply(BigInteger.valueOf(index));
-                        }
-                    } else {
-                        result = mapFactorials.get(lastKey);
-                        for (int index = lastKey + 1; index <= numberOfFactorial; index++) {
-                            result = result.multiply(BigInteger.valueOf(index));
-                        }
+            return mapFactorials.get(number);
+        }
+    }
+
+    /**
+     * Calculate factorial with previous value
+     *
+     * @param sortInputArray Sorted array of the number
+     * @param lengthOfArray  Length array of the array
+     */
+    private void curFactorials(Integer[] sortInputArray, int lengthOfArray) {
+        ExecutorService exsService = Executors.newFixedThreadPool(lengthOfArray);
+        Future[] resultCalculation = new Future[lengthOfArray];
+        BigInteger result = BigInteger.ONE;
+        for (int indexValue = 0; indexValue < lengthOfArray; indexValue++) {
+            if (sortInputArray[indexValue] >= 2) {
+                if (mapFactorials.isEmpty() & lastKey < 2) {
+                    for (int index = 2; index <= sortInputArray[indexValue]; index++) {
+                        result = result.multiply(BigInteger.valueOf(index));
+                    }
+                } else {
+                    try {
+                        resultCalculation[indexValue - 1].get();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                    result = mapFactorials.get(lastKey);
+                    for (int index = lastKey + 1; index <= sortInputArray[indexValue]; index++) {
+                        result = result.multiply(BigInteger.valueOf(index));
                     }
                 }
-                lastKey = numberOfFactorial;
-                mapFactorials.putIfAbsent(numberOfFactorial, result);
-            } finally {
-                lock.unlock();
             }
-            return result;
+            lastKey = sortInputArray[indexValue];
+            resultCalculation[indexValue] = exsService.submit(new putValueMapRunnable(lastKey, result));
+        }
+        exsService.shutdown();
+    }
+
+    /**
+     * Put of the series value
+     *
+     * @param inputResultMaxValue       Input number of the result max value
+     * @param inputExsecutorPutMaxValue Max value with type of the exsecutor service for put max value
+     * @param inputIndex                Input index
+     */
+    private void putValueSeries(BigInteger inputResultMaxValue, ExecutorService inputExsecutorPutMaxValue, int inputIndex) {
+        for (int indexValue = 0; indexValue < inputIndex + 1; indexValue++) {
+            if (indexValue >= 2) {
+                inputResultMaxValue = inputResultMaxValue.multiply(BigInteger.valueOf(indexValue));
+            }
+            inputExsecutorPutMaxValue.submit(new putValueMapRunnable(indexValue, inputResultMaxValue));
+        }
+        inputExsecutorPutMaxValue.shutdown();
+        while (!inputExsecutorPutMaxValue.isTerminated()) {
         }
     }
 
@@ -65,27 +123,34 @@ class FactorialCalc {
      * Calculation array of the number. And return array of the factorials
      *
      * @param inputArray Input array of the number
-     * @return resultCalculation Result calculates the array of factorials
      */
     Future[] calcArraysFactorials(Integer[] inputArray) {
-        Integer[] sortInputArray = Arrays.copyOf(inputArray,inputArray.length);
+        Integer[] sortInputArray = Arrays.copyOf(inputArray, inputArray.length);
         Arrays.sort(sortInputArray);
         lastKey = sortInputArray[0];
         Future[] resultCalculation = new Future[inputArray.length];
-        ExecutorService exsService = Executors.newFixedThreadPool(inputArray.length);
-        IntStream.range(0, inputArray.length).forEach(index -> {
-            resultCalculation[index] = exsService.submit(new FactorialCalcCallable(sortInputArray[index]));
-            try {
-                resultCalculation[index].get();
-            } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
+        ExecutorService exsServicePutMaxValue = Executors.newFixedThreadPool(sortInputArray[inputArray.length - 1]);
+        ExecutorService exsServiceGetMaxValue = Executors.newFixedThreadPool(sortInputArray[inputArray.length - 1]);
+        ExecutorService exsSeriesServiceGetValue = Executors.newFixedThreadPool(inputArray.length);
+        BigInteger resultMaxValue = BigInteger.ONE;
+
+        if ((sortInputArray[inputArray.length - 1] > MAX_NUMBER_IN_ARRAY) | inputArray.length > MAX_SIZE_OF_ARRAY) {
+            curFactorials(sortInputArray, inputArray.length);
+            for (int indexValue = 0; indexValue < inputArray.length; indexValue++) {
+                resultCalculation[indexValue] = exsSeriesServiceGetValue.submit(new getValueMapCallable(inputArray[indexValue]));
             }
-        });
-        IntStream.range(0, inputArray.length).forEach(index -> {
-            System.out.println("Число: " + (inputArray[index]));
-            System.out.println("Факториал: " + mapFactorials.get(inputArray[index]) + "\n");
-        });
-        exsService.shutdown();
+            exsSeriesServiceGetValue.shutdown();
+            while (!exsSeriesServiceGetValue.isTerminated()) {
+            }
+        } else {
+            putValueSeries(resultMaxValue, exsServicePutMaxValue, sortInputArray[inputArray.length - 1]);
+            for (int indexValue = 0; indexValue < inputArray.length; indexValue++) {
+                resultCalculation[indexValue] = exsServiceGetMaxValue.submit(new getValueMapCallable(inputArray[indexValue]));
+            }
+            exsServiceGetMaxValue.shutdown();
+            while (!exsServiceGetMaxValue.isTerminated()) {
+            }
+        }
         return resultCalculation;
     }
 }
